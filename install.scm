@@ -1,17 +1,22 @@
 #!/usr/bin/env gosh
 
+(use gauche.config)
 (use file.util)
 (use srfi-1)
 (use srfi-37)
 
-(define *ignore-directories* (map x->string
-                                  '(.svn CVS RCS)))
+(define *ignore-directories* (map x->string '(.svn CVS RCS)))
+(define *default-destdir* (gauche-site-library-directory))
+(define *default-datadir* (rxmatch-before
+                           (#/\/?info\/?/ (gauche-config "--infodir"))))
 
 (define (main args)
   (define (usage)
     (print #`"\t-b, --base=BASE\t\tBASE for install. (default \"\")")
-    (print #`"\t-d, --destdir=DIR\tInstall files in DIR.")
-    (print #`"\t\t\t\t(default \",(gauche-site-library-directory)\")")
+    (print #`"\t-d, --destdir=DIR\tInstall library files in DIR.")
+    (print #`"\t\t\t\t(default \",|*default-destdir*|\")")
+    (print #`"\t-d, --datadir=DIR\tInstall data files in DIR.")
+    (print #`"\t\t\t\t(default \",|*default-datadir*|\")")
     (print "\t-t, --test\t\tOnly show how to install. Don't install.")
     (print "\t-h, --help\t\tDisplay this help."))
   (define (bad-option message)
@@ -20,62 +25,69 @@
     (exit -1))
   (define options
     (list (option '(#\b "base") #t #t
-                  (lambda (option name arg base dest-dir test? . others)
+                  (lambda (option name arg base dest-dir data-dir test? . others)
                     (unless arg
                       (bad-option #`"BASE is required for option ,|name|"))
-                    (values arg dest-dir test?)))
+                    (values arg dest-dir data-dir test?)))
           (option '(#\d "destdir") #t #t
-                  (lambda (option name arg base dest-dir test? . others)
+                  (lambda (option name arg base dest-dir data-dir test? . others)
                     (unless arg
                       (bad-option #`"DIR is required for option ,|name|"))
-                    (values base arg test?)))
+                    (values base arg data-dir test?)))
+          (option '(#\d "datadir") #t #t
+                  (lambda (option name arg base dest-dir data-dir test? . others)
+                    (unless arg
+                      (bad-option #`"DIR is required for option ,|name|"))
+                    (values base dest-dir arg test?)))
           (option '(#\t "test") #f #f
-                  (lambda (option name arg base dest-dir test? . others)
-                    (values base dest-dir #t)))
+                  (lambda (option name arg base dest-dir data-dir test? . others)
+                    (values base dest-dir data-dir #t)))
           (option '(#\h "help") #f #f
                   (lambda (option name arg . others)
                     (usage)
                     (exit 0)))))
-  (receive (base dest-dir test?)
+  (receive (base dest-dir data-dir test?)
       (args-fold (cdr args)
                  options
                  (lambda (option name arg . seeds) ; unrecognized
                    (bad-option #`"Unrecognized option: ,|name|"))
-                 (lambda (operand test? dest-dir base) ; operand
-                   (values test? dest-dir base))
+                 (lambda (operand base dest-dir data-dir test?) ; operand
+                   (values base dest-dir data-dir test?))
                  ""
-                 (gauche-site-library-directory)
+                 *default-destdir*
+                 *default-datadir*
                  #f)
-    (install-directory "lib" (string-append base dest-dir) test?))
+    (install-directory "lib" (string-append base dest-dir) test?)
+    (install-directory "data" (string-append base data-dir) test?))
   0)
 
 (define (install-directory from to test?)
-  (directory-fold from
-                  (lambda (file knil)
-                    (let ((target (sys-dirname
-                                   (string-scan file from 'after))))
-                      (install-file file
-                                    (string-append to target)
-                                    test?)))
-                  #t
-                  :lister
-                  (lambda (dir knil)
-                    (let ((target (string-scan dir from 'after)))
-                      (if (member (sys-basename target)
-                                  *ignore-directories*
-                                  string=?)
+  (if (file-is-directory? from)
+    (directory-fold from
+                    (lambda (file knil)
+                      (let ((target (sys-dirname
+                                     (string-scan file from 'after))))
+                        (install-file file
+                                      (string-append to target)
+                                      test?)))
+                    #t
+                    :lister
+                    (lambda (dir knil)
+                      (let ((target (string-scan dir from 'after)))
+                        (if (member (sys-basename target)
+                                    *ignore-directories*
+                                    string=?)
                           '()
                           (begin
                             (make-installed-directory
-                             (string-join (list to target) "/")
+                             (build-path to (rxmatch-after (#/^\/*/ target)))
                              test?)
                             (directory-list dir
                                             :children? #t
-                                            :add-path? #t)))))))
+                                            :add-path? #t))))))))
 
 (define (install-file file dir test?)
-  (let ((target (string-join (list dir (sys-basename file))
-                             "/")))
+  (let ((target (build-path dir (sys-basename file))))
     (print #`"installing ,|file| => ,|target|")
     (if (not test?)
         (begin
