@@ -1,14 +1,13 @@
 #!/usr/bin/env gosh
 
-(use gauche.config)
 (use file.util)
 (use srfi-1)
 (use srfi-37)
 
 (define *ignore-directories* (map x->string '(.svn CVS RCS)))
 (define *default-destdir* (gauche-site-library-directory))
-(define *default-datadir* (rxmatch-before
-                           (#/\/?info\/?/ (gauche-config "--infodir"))))
+(define *default-datadir* (rxmatch-before 
+                           (#/\/?gauche\/?/ (gauche-site-library-directory))))
 
 (define (main args)
   (define (usage)
