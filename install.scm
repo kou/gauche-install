@@ -88,17 +88,15 @@
 (define (install-file file dir test?)
   (let ((target (build-path dir (sys-basename file))))
     (print #`"installing ,|file| => ,|target|")
-    (if (not test?)
-        (begin
-          (copy-file file
-                     target
-                     :if-exists :supersede
-                     :safe #t)
-          (sys-chmod target #o644)))))
+    (unless test?
+      (copy-file file
+                 target
+                 :if-exists :supersede
+                 :safe #t)
+      (sys-chmod target #o644))))
 
 (define (make-installed-directory dir test?)
   (print #`"making installed directory ,|dir|")
-  (if (not test?)
-      (begin
-        (make-directory* dir)
-        (sys-chmod dir #o755))))
+  (unless test?
+    (make-directory* dir)
+    (sys-chmod dir #o755)))
