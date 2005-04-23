@@ -9,6 +9,9 @@
 (define *default-datadir* (rxmatch-before 
                            (#/\/?gauche\/?/ (gauche-site-library-directory))))
 
+(define *shared-library-re* (string->regexp
+                             #`"lib.*\.,(gauche-config \"--dylib-suffix\")$"))
+
 (define (main args)
   (define (usage)
     (print #`"\t-b, --base=BASE\t\tBASE for install. (default \"\")")
@@ -84,6 +87,10 @@
                             (directory-list dir
                                             :children? #t
                                             :add-path? #t))))))))
+
+(define (shared-library? filename)
+  (and (rxmatch *shared-library-re* filename)
+       #t))
 
 (define (install-file file dir test?)
   (let ((target (build-path dir (sys-basename file))))
