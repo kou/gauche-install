@@ -1,6 +1,7 @@
 #!/usr/bin/env gosh
 
 (use file.util)
+(use gauche.config)
 (use srfi-1)
 (use srfi-37)
 
