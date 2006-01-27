@@ -1,5 +1,8 @@
 #!/usr/bin/env gosh
 
+;;; This file can be distributed under the same license of Gauche.
+;;;   Copyright (c) 2004-2006 Kouhei Sutou <kou@cozmixng.org>
+
 (use file.util)
 (use gauche.config)
 (use srfi-1)
